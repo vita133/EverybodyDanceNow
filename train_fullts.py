@@ -11,6 +11,8 @@ import os
 import numpy as np
 import torch
 from torch.autograd import Variable
+import torch.multiprocessing as mp
+
 
 opt = TrainOptions().parse()
 iter_path = os.path.join(opt.checkpoints_dir, opt.name, 'iter.txt')
@@ -151,3 +153,8 @@ for epoch in range(start_epoch, opt.niter + opt.niter_decay + 1):
     ### linearly decay learning rate after certain iterations
     if epoch > opt.niter:
         model.module.update_learning_rate()
+if __name__ == '__main__':
+    # Your main code here
+    pass
+    import torch.multiprocessing as mp
+    mp.freeze_support()

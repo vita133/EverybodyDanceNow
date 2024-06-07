@@ -47,3 +47,10 @@ for i, data in enumerate(dataset):
     visualizer.save_images(webpage, visuals, img_path)
 
 webpage.save()
+
+
+if __name__ == '__main__':
+    # Your main code here
+    pass
+    import torch.multiprocessing as mp
+    mp.freeze_support()

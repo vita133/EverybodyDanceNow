@@ -95,7 +95,7 @@ def makebox128(miny, maxy, minx, maxx, dimy=128, dimx=128):
 
 
 while n <= end:
-	print numframesmade, n
+	print (numframesmade, n)
 	framesmadestr = '%06d' % numframesmade
 	string_num = '%06d' % n
 	key_name = "/media/hdd5tb/caroline/keypoints/lingjie/frame" + string_num
@@ -126,13 +126,13 @@ while n <= end:
 		# print miny,maxy, minx,maxx
 
 		if maxx >= 512:
-			print "BEEP" + str(n)
+			print ("BEEP" + str(n))
 		if maxy >= 512:
-			print "ALSDFKJKJ" + str(n)
+			print ("ALSDFKJKJ" + str(n))
 
 		miny, maxy, minx, maxx = makebox128(miny, maxy, minx, maxx)
 
-		print ave, miny, maxy, minx, maxx, string_num
+		print (ave, miny, maxy, minx, maxx, string_num)
 
 		myfile = "/media/hdd5tb/caroline/train_facetexts128/frame" + string_num + '.txt'
 		F = open(myfile, "w")

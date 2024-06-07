@@ -1,6 +1,8 @@
 import dominate
 from dominate.tags import *
 import os
+from util import parallelTestModule
+import multiprocessing
 
 
 class HTML:
@@ -43,12 +45,14 @@ class HTML:
 
     def save(self):
         html_file = '%s/index.html' % self.web_dir
-        f = open(html_file, 'wt')
-        f.write(self.doc.render())
-        f.close()
+        with open(html_file, 'wt') as f:
+            f.write(self.doc.render())
 
 
-if __name__ == '__main__':
+def main():
+    extractor = parallelTestModule.ParallelExtractor()
+    extractor.runInParallel(numProcesses=2, numThreads=4)
+   
     html = HTML('web/', 'test_html')
     html.add_header('hello world')
 
@@ -61,3 +65,11 @@ if __name__ == '__main__':
         links.append('image_%d.jpg' % n)
     html.add_images(ims, txts, links)
     html.save()
+
+
+if __name__ == '__main__':
+    from multiprocessing import freeze_support
+    freeze_support()
+    multiprocessing.set_start_method('fork')  # Це для Windows
+    main()
+    

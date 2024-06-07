@@ -51,7 +51,7 @@ boxbuffer = opt.boxbuffer #70
 numframesmade = 0
 n = start
 
-print step
+print (step)
 
 startx = 0
 endx = myshape[1]
@@ -84,11 +84,11 @@ if opt.debug and (not os.path.exists(savedir + '/debug')):
 
 print('----------------- Loading Frames -----------------')
 frames = sorted(os.listdir(frames_dir))
-print frames
+print (frames)
 print('----------------- All Loaded -----------------')
 
 while n <= end:
-	print n
+	print (n)
 	framesmadestr = '%06d' % numframesmade
 
 	filebase_name = os.path.splitext(frames[n])[0]
@@ -111,11 +111,11 @@ while n <= end:
 
 	if not (len(posepts) in poselen):
 		# empty or contains multiple detections
-		print "empty", len(posepts)
+		print ("empty", len(posepts))
 		n += 1
 		continue
 	else:
-		print 'graphing file %s' % filebase_name
+		print ('graphing file %s' % filebase_name)
 		if opt.map_25_to_23:
 			posepts = map_25_to_23(posepts)
 

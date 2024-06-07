@@ -51,6 +51,17 @@ def makebox128(miny, maxy, minx, maxx, dimy=128, dimx=128):
 	# print "diffx", maxx - minx
 	return miny, maxy, minx, maxx
 
+def aveface_frompose23(posepts):
+	# Your implementation here
+ # Припустимо, що перші 23 ключові точки відповідають обличчю
+    face_keypoints = posepts[:23]
+    
+    # Обчислюємо середні координати обличчя
+    avg_x = sum(pt[0] for pt in face_keypoints) / len(face_keypoints)
+    avg_y = sum(pt[1] for pt in face_keypoints) / len(face_keypoints)
+    
+    return avg_x, avg_y
+
 def get_faceboxes(keypoints_dir, frames_dir, save_dir, phase, start, end, step, myshape, SIZE, boxbuffer, debug=False):
 
 	# myshape = (1080, 1920, 3)

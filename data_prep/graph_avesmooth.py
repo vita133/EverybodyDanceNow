@@ -57,7 +57,7 @@ boxbuffer = opt.boxbuffer
 numframesmade = 0
 n = start
 
-print step
+print (step)
 
 startx = 0
 endx = myshape[1]
@@ -101,7 +101,7 @@ original_queue = []
 
 n = start
 while n <= end:
-	print n
+	print (n)
 	framesmadestr = '%06d' % numframesmade
 
 	filebase_name = os.path.splitext(frames[n])[0]
@@ -123,7 +123,7 @@ while n <= end:
 			sys.exit(0)
 
 	if not (len(posepts) in poselen):
-		print "EMPTY"
+		print ("EMPTY")
 		n += 1
 		continue
 	oriImg = cv.imread(frame_name)
