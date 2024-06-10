@@ -123,13 +123,17 @@ class GANLoss(nn.Module):
             return self.loss(input[-1], target_tensor)
 
 class VGGLoss(nn.Module):
-    def __init__(self, gpu_ids):
+    def __init__(self, gpu_ids, weights=None):
         super(VGGLoss, self).__init__()        
         self.vgg = Vgg19()
         if torch.cuda.is_available():
             self.vgg.cuda()
         self.criterion = torch.nn.L1Loss()
-        # self.weights = [1.0/32, 1.0/16, 1.0/8, 1.0/4, 1.0]        
+        # self.weights = [1.0/32, 1.0/16, 1.0/8, 1.0/4, 1.0]      
+        if weights is None:
+            self.weights = [1.0/32, 1.0/16, 1.0/8, 1.0/4, 1.0]
+        else:
+            self.weights = weights  
 
     def forward(self, x, y):              
         if torch.cuda.is_available():

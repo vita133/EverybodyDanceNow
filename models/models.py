@@ -14,7 +14,7 @@ def create_model_fullts(opt):
     return model
 
 def create_model_D(opt):
-    from .pix2pixHD_model_D import Pix2PixHDModel
+    from pix2pixHD_model_fullts import Pix2PixHDModel
     model = Pix2PixHDModel()    
     model.initialize(opt)
     print("model [%s] was created" % (model.name()))
@@ -25,7 +25,7 @@ def create_model_D(opt):
     return model
 
 def create_model_flowD(opt):
-    from .pix2pixHD_model_flowD import Pix2PixHDModel
+    from pix2pixHD_model_fullts import Pix2PixHDModel
     model = Pix2PixHDModel()    
     model.initialize(opt)
     print("model [%s] was created" % (model.name()))
