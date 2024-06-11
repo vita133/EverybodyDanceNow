@@ -114,8 +114,14 @@ class GANLoss(nn.Module):
         if isinstance(input[0], list):
             loss = 0
             for input_i in input:
+                device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
                 pred = input_i[-1]
                 target_tensor = self.get_target_tensor(pred, target_is_real)
+                
+                pred = pred.to(device)
+                target_tensor = target_tensor.to(device)
+                
                 loss += self.loss(pred, target_tensor)
             return loss
         else:            
@@ -192,7 +198,8 @@ class LocalEnhancer(nn.Module):
 
     def forward(self, input): 
         ### create input pyramid
-        input_downsampled = [input]
+        input_downsampled = [input.to(input.device)]
+
         for i in range(self.n_local_enhancers):
             input_downsampled.append(self.downsample(input_downsampled[-1]))
 
@@ -401,6 +408,7 @@ class NLayerDiscriminator(nn.Module):
 
     def forward(self, input):
         if self.getIntermFeat:
+            input = input.to(input.device)
             res = [input]
             for n in range(self.n_layers+2):
                 model = getattr(self, self.addname + 'model'+str(n))

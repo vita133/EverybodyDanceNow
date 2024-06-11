@@ -19,6 +19,8 @@ class Pix2PixHDModel(BaseModel):
         if opt.resize_or_crop != 'none': # when training at full res this causes OOM
             torch.backends.cudnn.benchmark = True
         self.isTrain = opt.isTrain
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
 
         ##### define networks        
         # Generator network
@@ -178,14 +180,33 @@ class Pix2PixHDModel(BaseModel):
             return self.netDface.forward(input_concat)
 
     def forward(self, label, next_label, image, next_image, face_coords, zeroshere, infer=False):
+    
         # Encode Inputs
         input_label, real_image, next_label, next_image, zeroshere = self.encode_input(label, image, \
                      next_label=next_label, next_image=next_image, zeroshere=zeroshere)
-        if self.opt.face_discrim:
-            miny = face_coords.data[0][0]
-            maxy = face_coords.data[0][1]
-            minx = face_coords.data[0][2]
-            maxx = face_coords.data[0][3]
+       
+        input_label = input_label.to(self.device)
+        real_image = real_image.to(self.device)
+        next_label = next_label.to(self.device)
+        next_image = next_image.to(self.device)
+        zeroshere = zeroshere.to(self.device)
+ 
+        default_miny = 0
+        default_maxy = 0
+        default_minx = 0
+        default_maxx = 0
+
+    #    if len(face_coords.tolist()) > 0:
+    #       miny = face_coords.data[0]
+    #       maxy = face_coords.data[1]
+    #       minx = face_coords.data[2]
+    #       maxx = face_coords.data[3]
+    #    else:
+    # Handle the case when face_coords is empty
+        miny = default_miny
+        maxy = default_maxy
+        minx = default_minx
+        maxx = default_maxx
 
         initial_I_0 = 0
 
@@ -228,6 +249,12 @@ class Pix2PixHDModel(BaseModel):
             real_face_1 = next_image[:, :, miny:maxy, minx:maxx]
 
             # Fake Detection and Loss
+            label = data['label'].to(device)
+            next_label = data['next_label'].to(device)
+            image = data['image'].to(device)
+            next_image = data['next_image'].to(device)
+            face_coords = data['face_coords'].to(device)
+
             pred_fake_pool_face = self.discriminateface(face_label_0, fake_face_0, use_pool=True)
             loss_D_fake_face += 0.5 * self.criterionGAN(pred_fake_pool_face, False)
 
@@ -257,8 +284,12 @@ class Pix2PixHDModel(BaseModel):
                 face_residual = torch.cat((face_residual_0, face_residual_1), dim=3)
 
         # Fake Detection and Loss
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         pred_fake_pool = self.discriminate_4(input_label, next_label, I_0, I_1, use_pool=True)
-        loss_D_fake = self.criterionGAN(pred_fake_pool, False)        
+        pred_fake_pool = [x.cpu().numpy() if isinstance(x, torch.Tensor) else x for x in pred_fake_pool]
+        pred_fake_pool = torch.from_numpy(np.asarray(pred_fake_pool)) #convert to tensor
+        loss_D_fake = self.criterionGAN(pred_fake_pool, False)
+  
 
         # Real Detection and Loss        
         pred_real = self.discriminate_4(input_label, next_label, real_image, next_image)

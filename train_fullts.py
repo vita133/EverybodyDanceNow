@@ -32,12 +32,15 @@ def main():
         opt.niter_decay = 0
         opt.max_dataset_size = 10
 
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+
     data_loader = CreateDataLoader(opt)
     dataset = data_loader.load_data()
     dataset_size = len(data_loader)
     print('#training images = %d' % dataset_size)
 
-    model = create_model_fullts(opt)
+    model = create_model_fullts(opt).to(device)
     visualizer = Visualizer(opt)
 
     total_steps = (start_epoch-1) * dataset_size + epoch_iter    
@@ -56,10 +59,16 @@ def main():
             no_nexts = data['next_label'].dim() > 1
 
             if no_nexts:
-                cond_zeros = torch.zeros(data['label'].size()).float()
+                cond_zeros = torch.zeros(data['label'].clone().size()).float()
 
-                losses, generated = model(Variable(data['label']), Variable(data['next_label']), Variable(data['image']), \
-                        Variable(data['next_image']), Variable(data['face_coords']), Variable(cond_zeros), infer=True)
+                label = data['label'].to(device)
+                next_label = data['next_label'].to(device)
+                image = data['image'].to(device)
+                next_image = data['next_image'].to(device)
+                face_coords = data['face_coords'].to(device)
+
+                losses, generated = model(Variable(label), Variable(next_label), Variable(image), \
+                        Variable(next_image), Variable(face_coords), Variable(cond_zeros), infer=True).to(device)
 
                 losses = [ torch.mean(x) if not isinstance(x, int) else x for x in losses ]
                 loss_dict = dict(zip(model.loss_names, losses))
