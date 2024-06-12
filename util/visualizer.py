@@ -37,25 +37,15 @@ class Visualizer():
 
     # |visuals|: dictionary of images to display or save
     def display_current_results(self, visuals, epoch, step):
-        if self.tf_log: # show images in tensorboard output
-            img_summaries = []
-            for label, image_numpy in visuals.items():
-                # Convert the numpy array to an image
-                image_pil = Image.fromarray(image_numpy.astype(np.uint8))
-                with BytesIO() as output:
-                    image_pil.save(output, format="JPEG")
-                    image_string = output.getvalue()
-                # Create an Image object
-                img_sum = self.tf.summary.Image(encoded_image_string=image_string, height=image_numpy.shape[0], width=image_numpy.shape[1])
-                # Create a Summary value
-                img_summaries.append(self.tf.summary.Value(tag=label, image=img_sum))
-
-            # Create and write Summary
+        if self.tf_log:  # show images in tensorboard output
             with self.writer.as_default():
-                summary = self.tf.summary.Summary(value=img_summaries)
-                self.writer.add_summary(summary, step)
+                for label, image_numpy in visuals.items():
+                    # Convert the numpy array to a tensor
+                    image_tensor = self.tf.convert_to_tensor(image_numpy, dtype=self.tf.uint8)
+                    # Add a batch dimension and log the image
+                    self.tf.summary.image(name=label, data=image_tensor[None], step=step)
 
-        if self.use_html: # save images to a html file
+        if self.use_html:  # save images to an HTML file
             for label, image_numpy in visuals.items():
                 if isinstance(image_numpy, list):
                     for i in range(len(image_numpy)):
@@ -78,7 +68,7 @@ class Visualizer():
                         for i in range(len(image_numpy)):
                             img_path = 'epoch%.3d_%s_%d.jpg' % (n, label, i)
                             ims.append(img_path)
-                            txts.append(label+str(i))
+                            txts.append(label + str(i))
                             links.append(img_path)
                     else:
                         img_path = 'epoch%.3d_%s.jpg' % (n, label)
@@ -88,7 +78,7 @@ class Visualizer():
                 if len(ims) < 10:
                     webpage.add_images(ims, txts, links, width=self.win_size)
                 else:
-                    num = int(round(len(ims)/2.0))
+                    num = int(round(len(ims) / 2.0))
                     webpage.add_images(ims[:num], txts[:num], links[:num], width=self.win_size)
                     webpage.add_images(ims[num:], txts[num:], links[num:], width=self.win_size)
             webpage.save()

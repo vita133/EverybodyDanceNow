@@ -80,8 +80,8 @@ def print_network(net):
 ##############################################################################
 class GANLoss(nn.Module):
     def __init__(self, use_lsgan=True, target_real_label=1.0, target_fake_label=0.0,
-                 tensor=torch.FloatTensor):
-        super(GANLoss, self).__init__()
+                 tensor=torch.cuda.FloatTensor if torch.cuda.is_available() else torch.Tensor):
+        super(GANLoss, self).__init__()  # Викликаємо __init__() батьківського класу
         self.real_label = target_real_label
         self.fake_label = target_fake_label
         self.real_label_var = None
@@ -241,6 +241,7 @@ class GlobalGenerator(nn.Module):
         self.model = nn.Sequential(*model)
             
     def forward(self, input):
+        
         return self.model(input)             
         
 # Define a resnet block

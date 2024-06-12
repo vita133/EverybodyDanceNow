@@ -68,7 +68,7 @@ def main():
                 face_coords = data['face_coords'].to(device)
 
                 losses, generated = model(Variable(label), Variable(next_label), Variable(image), \
-                        Variable(next_image), Variable(face_coords), Variable(cond_zeros), infer=True).to(device)
+                        Variable(next_image), Variable(face_coords), Variable(cond_zeros), infer=True)
 
                 losses = [ torch.mean(x) if not isinstance(x, int) else x for x in losses ]
                 loss_dict = dict(zip(model.loss_names, losses))

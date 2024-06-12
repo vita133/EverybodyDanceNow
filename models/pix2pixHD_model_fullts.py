@@ -286,8 +286,7 @@ class Pix2PixHDModel(BaseModel):
         # Fake Detection and Loss
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         pred_fake_pool = self.discriminate_4(input_label, next_label, I_0, I_1, use_pool=True)
-        pred_fake_pool = [x.cpu().numpy() if isinstance(x, torch.Tensor) else x for x in pred_fake_pool]
-        pred_fake_pool = torch.from_numpy(np.asarray(pred_fake_pool)) #convert to tensor
+        
         loss_D_fake = self.criterionGAN(pred_fake_pool, False)
   
 
