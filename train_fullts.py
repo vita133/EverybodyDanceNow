@@ -66,7 +66,8 @@ def main():
                 image = data['image'].to(device)
                 next_image = data['next_image'].to(device)
                 face_coords = data['face_coords'].to(device)
-
+                cond_zeros = cond_zeros.to(device)
+            
                 losses, generated = model(Variable(label), Variable(next_label), Variable(image), \
                         Variable(next_image), Variable(face_coords), Variable(cond_zeros), infer=True)
 

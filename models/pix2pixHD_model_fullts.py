@@ -222,6 +222,8 @@ class Pix2PixHDModel(BaseModel):
             I_0 = initial_I_0.clone()
             I_0[:, :, miny:maxy, minx:maxx] = initial_I_0[:, :, miny:maxy, minx:maxx] + face_residual_0
         else:
+            device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+            input_concat = input_concat.to(device)
             I_0 = self.netG.forward(input_concat)
 
 

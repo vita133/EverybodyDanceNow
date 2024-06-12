@@ -46,7 +46,7 @@ def define_G(input_nc, output_nc, ngf, netG, n_downsample_global=3, n_blocks_glo
     print(netG)
     if len(gpu_ids) > 0:
         assert(torch.cuda.is_available())   
-        netG.cuda(gpu_ids[0])
+        netG = netG.cuda(gpu_ids[0])
     netG.apply(weights_init)
     return netG
 
@@ -62,7 +62,7 @@ def define_D(input_nc, ndf, n_layers_D, norm='instance', use_sigmoid=False, num_
     print(netD)
     if len(gpu_ids) > 0:
         assert(torch.cuda.is_available())
-        netD.cuda(gpu_ids[0])
+        netD = netD.cuda(gpu_ids[0])
     netD.apply(weights_init)
     return netD
 
@@ -133,7 +133,7 @@ class VGGLoss(nn.Module):
         super(VGGLoss, self).__init__()        
         self.vgg = Vgg19()
         if torch.cuda.is_available():
-            self.vgg.cuda()
+            self.vgg = self.vgg.cuda()
         self.criterion = torch.nn.L1Loss()
         # self.weights = [1.0/32, 1.0/16, 1.0/8, 1.0/4, 1.0]      
         if weights is None:
@@ -241,7 +241,6 @@ class GlobalGenerator(nn.Module):
         self.model = nn.Sequential(*model)
             
     def forward(self, input):
-        
         return self.model(input)             
         
 # Define a resnet block

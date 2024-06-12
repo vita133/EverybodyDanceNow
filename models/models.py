@@ -10,7 +10,7 @@ def create_model_fullts(opt):
 
     if opt.isTrain and len(opt.gpu_ids):
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        model.to(device)
+        model = model.to(device)
         model = torch.nn.DataParallel(model, device_ids=opt.gpu_ids)
 
     return model

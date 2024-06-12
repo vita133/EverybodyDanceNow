@@ -46,7 +46,7 @@ class BaseModel(torch.nn.Module):
         save_path = os.path.join(self.save_dir, save_filename)
         torch.save(network.cpu().state_dict(), save_path)
         if len(gpu_ids) and torch.cuda.is_available():
-            network.cuda()
+            network = network.cuda()
 
     # helper loading function that can be used by subclasses
     def load_network(self, network, network_label, epoch_label, save_dir=''):        
