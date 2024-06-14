@@ -40,8 +40,9 @@ for i, data in enumerate(dataset):
     generated = model.inference(data['label'], previous_cond, data['face_coords'])
 
     previous_cond = generated.data
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    visuals = OrderedDict([('synthesized_image', util.tensor2im(generated.data[0]))])
+    visuals = OrderedDict([('synthesized_image', util.tensor2im(generated.data[0].to(device)))])
     img_path = data['path']
     print('process image... %s' % img_path)
     visualizer.save_images(webpage, visuals, img_path)

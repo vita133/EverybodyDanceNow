@@ -1,23 +1,18 @@
-### Copyright (C) 2017 NVIDIA Corporation. All rights reserved. 
-### Licensed under the CC BY-NC-SA 4.0 license (https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode).
-from __future__ import print_function
 import torch
 import numpy as np
 from PIL import Image
-import inspect, re
-import numpy as np
 import os
-import collections
-from PIL import Image
 
-# Converts a Tensor into a Numpy array
-# |imtype|: the desired type of the converted numpy array
+# Перевірка доступності GPU
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 def tensor2im(image_tensor, imtype=np.uint8, normalize=True):
     if isinstance(image_tensor, list):
         image_numpy = []
         for i in range(len(image_tensor)):
             image_numpy.append(tensor2im(image_tensor[i], imtype, normalize))
         return image_numpy
+    image_tensor = image_tensor.to(device)  # Переміщення на GPU, якщо доступно
     image_numpy = image_tensor.cpu().float().numpy()
     if normalize:
         image_numpy = (np.transpose(image_numpy, (1, 2, 0)) + 1) / 2.0 * 255.0
@@ -29,6 +24,7 @@ def tensor2im(image_tensor, imtype=np.uint8, normalize=True):
     return image_numpy.astype(imtype)
 
 def tensor2label(output, n_label, imtype=np.uint8):
+    output = output.to(device)  # Переміщення на GPU, якщо доступно
     output = output.cpu().float()    
     if output.size()[0] > 1:
         output = output.max(0, keepdim=True)[1]
@@ -92,7 +88,7 @@ class Colorize(object):
         color_image = torch.ByteTensor(3, size[1], size[2]).fill_(0)
 
         for label in range(0, len(self.cmap)):
-            mask = (label == gray_image[0]).cpu()
+            mask = (label == gray_image[0]).to(device).cpu()  # Переміщення на GPU, якщо доступно
             color_image[0][mask] = self.cmap[label][0]
             color_image[1][mask] = self.cmap[label][1]
             color_image[2][mask] = self.cmap[label][2]

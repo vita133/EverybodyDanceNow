@@ -29,7 +29,11 @@ class Pix2PixHDModel(BaseModel):
             netG_input_nc += 1          
         self.netG = networks.define_G(netG_input_nc, opt.output_nc, opt.ngf, opt.netG, 
                                       opt.n_downsample_global, opt.n_blocks_global, opt.n_local_enhancers, 
-                                      opt.n_blocks_local, opt.norm, gpu_ids=self.gpu_ids)        
+                                      opt.n_blocks_local, opt.norm, gpu_ids=self.gpu_ids).to(self.device)   
+        if self.netG is None:
+            raise ValueError("Initialization of self.netG failed!")
+        else:
+           print("self.netG initialized successfully.")     
 
         # Discriminator network
         if self.isTrain:
@@ -224,6 +228,7 @@ class Pix2PixHDModel(BaseModel):
         else:
             device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
             input_concat = input_concat.to(device)
+    
             I_0 = self.netG.forward(input_concat)
 
 
@@ -233,12 +238,15 @@ class Pix2PixHDModel(BaseModel):
         face_residual_1 = 0
         if self.opt.face_generator:
             initial_I_1 = self.netG.forward(input_concat1)
-            face_label_1 = next_label[:, :, miny:maxy, minx:maxx]
+            input_concat1 = input_concat1.to(device)  # Переміщення на правильний пристрій
+            face_label_1 = next_label[:, :, miny:maxy, minx:maxx].to(device)  # Переміщення на правильний пристрій
             face_residual_1 = self.faceGen.forward(torch.cat((face_label_1, initial_I_1[:, :, miny:maxy, minx:maxx]), dim=1))
             I_1 = initial_I_1.clone()
             I_1[:, :, miny:maxy, minx:maxx] = initial_I_1[:, :, miny:maxy, minx:maxx] + face_residual_1
         else:
+            input_concat1 = input_concat1.to(device)  # Переміщення на правильний пристрій
             I_1 = self.netG.forward(input_concat1)
+            
 
         loss_D_fake_face = loss_D_real_face = loss_G_GAN_face = 0
         fake_face_0 = fake_face_1 = real_face_0 = real_face_1 = 0

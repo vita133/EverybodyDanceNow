@@ -34,16 +34,20 @@ def main():
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+    # Set the multiprocessing start method to 'spawn'
+    mp.set_start_method('spawn', force=True)
 
     data_loader = CreateDataLoader(opt)
     dataset = data_loader.load_data()
     dataset_size = len(data_loader)
     print('#training images = %d' % dataset_size)
 
-    model = create_model_fullts(opt).to(device)
+    model = create_model_fullts(opt)
+    model.cuda()
     visualizer = Visualizer(opt)
 
     total_steps = (start_epoch-1) * dataset_size + epoch_iter    
+    
     for epoch in range(start_epoch, opt.niter + opt.niter_decay + 1):
         epoch_start_time = time.time()
         if epoch != start_epoch:
@@ -61,15 +65,29 @@ def main():
             if no_nexts:
                 cond_zeros = torch.zeros(data['label'].clone().size()).float()
 
-                label = data['label'].to(device)
-                next_label = data['next_label'].to(device)
-                image = data['image'].to(device)
-                next_image = data['next_image'].to(device)
-                face_coords = data['face_coords'].to(device)
-                cond_zeros = cond_zeros.to(device)
+                label = Variable(data['label']).to(device)
+                label = label.type(torch.cuda.FloatTensor)
+                next_label = Variable(data['label']).to(device)
+                next_label = next_label.type(torch.cuda.FloatTensor)
+                image = Variable(data['image']).to(device)
+                image = image.type(torch.cuda.FloatTensor)
+                next_image = Variable(data['image']).to(device)
+                next_image = next_image.type(torch.cuda.FloatTensor)
+                face_coords = Variable(data['face_coords']).to(device)
+                face_coords = face_coords.type(torch.cuda.FloatTensor)
+                cond_zeros = Variable(cond_zeros).to(device)
+                cond_zeros = cond_zeros.type(torch.cuda.FloatTensor)
+                
+                # label = Variable(data['label'])
+                # next_label = Variable(data['label'])
+                # image = Variable(data['image'])
+                # next_image = Variable(data['image'])
+                # face_coords = Variable(data['face_coords'])
+                # cond_zeros = Variable(cond_zeros)
             
-                losses, generated = model(Variable(label), Variable(next_label), Variable(image), \
-                        Variable(next_image), Variable(face_coords), Variable(cond_zeros), infer=True)
+                model.cuda()
+
+                losses, generated = model(label, next_label, image, next_image, face_coords, cond_zeros, infer=True)
 
                 losses = [ torch.mean(x) if not isinstance(x, int) else x for x in losses ]
                 loss_dict = dict(zip(model.loss_names, losses))
@@ -95,23 +113,23 @@ def main():
 
                 if save_fake:
                     syn = generated[0].data[0]
-                    inputs = torch.cat((data['label'], data['next_label']), dim=3)
-                    targets = torch.cat((data['image'], data['next_image']), dim=3)
-                    visuals = OrderedDict([('input_label', util.tensor2im(inputs[0], normalize=False)),
-                                           ('synthesized_image', util.tensor2im(syn)),
-                                           ('real_image', util.tensor2im(targets[0]))])
+                    inputs = torch.cat((data['label'], data['next_label']), dim=3).to(device)
+                    targets = torch.cat((data['image'], data['next_image']), dim=3).to(device)
+                    visuals = OrderedDict([('input_label', util.tensor2im(inputs[0].to(device), normalize=False)),
+                                           ('synthesized_image', util.tensor2im(syn.to(device))),
+                                           ('real_image', util.tensor2im(targets[0].to(device)))])
                     if opt.face_generator:
                         miny, maxy, minx, maxx = data['face_coords'][0]
                         res_face = generated[2].data[0]
                         syn_face = generated[1].data[0]
                         preres = generated[3].data[0]
-                        visuals = OrderedDict([('input_label', util.tensor2im(inputs[0], normalize=False)),
-                                               ('synthesized_image', util.tensor2im(syn)),
-                                               ('synthesized_face', util.tensor2im(syn_face)),
-                                               ('residual', util.tensor2im(res_face)),
-                                               ('real_face', util.tensor2im(data['image'][0][:, miny:maxy, minx:maxx])),
-                                               ('input_face', util.tensor2im(data['label'][0][:, miny:maxy, minx:maxx], normalize=False)),
-                                               ('real_image', util.tensor2im(targets[0]))])
+                        visuals = OrderedDict([('input_label', util.tensor2im(inputs[0].to(device), normalize=False)),
+                                               ('synthesized_image', util.tensor2im(syn.to(device))),
+                                               ('synthesized_face', util.tensor2im(syn_face.to(device))),
+                                               ('residual', util.tensor2im(res_face.to(device))),
+                                               ('real_face', util.tensor2im(data['image'][0][:, miny:maxy, minx:maxx].to(device))),
+                                               ('input_face', util.tensor2im(data['label'][0][:, miny:maxy, minx:maxx].to(device), normalize=False)),
+                                               ('real_image', util.tensor2im(targets[0].to(device)))])
                     visualizer.display_current_results(visuals, epoch, total_steps)
 
             if total_steps % opt.save_latest_freq == 0:
