@@ -43,7 +43,7 @@ def get_transform(opt, params, method=Image.BICUBIC, normalize=True, whocallme='
     if whocallme == 'heat':
         storeload = storeload * 4
     if whocallme == 'fulldisp':
-        transform_list += [transforms.ToTensor().to(opt.device)]
+        transform_list += [transforms.ToTensor()]
         return transforms.Compose(transform_list)    
     if 'resize' in opt.resize_or_crop:
         osize = [storeload, storeload]
@@ -63,7 +63,7 @@ def get_transform(opt, params, method=Image.BICUBIC, normalize=True, whocallme='
     if opt.isTrain and not opt.no_flip:
         transform_list.append(transforms.Lambda(lambda img: __flip(img, params['flip'])))
 
-    transform_list += [transforms.ToTensor().to(opt.device)]
+    transform_list += [transforms.ToTensor()]
 
     if normalize:
         transform_list += [transforms.Normalize((0.5, 0.5, 0.5),
