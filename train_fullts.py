@@ -51,8 +51,8 @@ def main():
     for epoch in range(start_epoch, opt.niter + opt.niter_decay + 1):
         epoch_start_time = time.time()
         if epoch != start_epoch:
-            epoch_iter = epoch_iter % dataset_size
-        for i, data in enumerate(dataset, start=epoch_iter):
+            epoch_iter = epoch_iter  % dataset_size
+        for data in enumerate(dataset, start=epoch_iter):
             iter_start_time = time.time()
             total_steps += opt.batchSize
             epoch_iter += opt.batchSize
