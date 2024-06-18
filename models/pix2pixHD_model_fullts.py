@@ -70,7 +70,7 @@ class Pix2PixHDModel(BaseModel):
 
         # load networks
         if (not self.isTrain or opt.continue_train or opt.load_pretrain):
-            pretrained_path = '' if not self.isTrain else opt.weights
+            pretrained_path = '' if not self.isTrain else opt.load_pretrain
             self.load_network(self.netG, 'G', opt.which_epoch, pretrained_path)            
             if self.isTrain:
                 self.load_network(self.netD, 'D', opt.which_epoch, pretrained_path)
@@ -200,17 +200,19 @@ class Pix2PixHDModel(BaseModel):
         default_minx = 0
         default_maxx = 0
 
-    #    if len(face_coords.tolist()) > 0:
-    #       miny = face_coords.data[0]
-    #       maxy = face_coords.data[1]
-    #       minx = face_coords.data[2]
-    #       maxx = face_coords.data[3]
-    #    else:
+        if len(face_coords.tolist()) > 0:
+            print('face_coords:', face_coords)
+            print('face_coords.data:', face_coords.data)
+            miny = int(face_coords.data[0][0].item())
+            maxy = int(face_coords.data[0][1].item())
+            minx = int(face_coords.data[0][2].item())
+            maxx = int(face_coords.data[0][3].item())
+        else:
     # Handle the case when face_coords is empty
-        miny = default_miny
-        maxy = default_maxy
-        minx = default_minx
-        maxx = default_maxx
+           miny = default_miny
+           maxy = default_maxy
+           minx = default_minx
+           maxx = default_maxx
 
         initial_I_0 = 0
 
@@ -238,6 +240,7 @@ class Pix2PixHDModel(BaseModel):
         face_residual_1 = 0
         if self.opt.face_generator:
             initial_I_1 = self.netG.forward(input_concat1)
+            device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
             input_concat1 = input_concat1.to(device)  # Переміщення на правильний пристрій
             face_label_1 = next_label[:, :, miny:maxy, minx:maxx].to(device)  # Переміщення на правильний пристрій
             face_residual_1 = self.faceGen.forward(torch.cat((face_label_1, initial_I_1[:, :, miny:maxy, minx:maxx]), dim=1))
@@ -259,12 +262,6 @@ class Pix2PixHDModel(BaseModel):
             real_face_1 = next_image[:, :, miny:maxy, minx:maxx]
 
             # Fake Detection and Loss
-            label = data['label'].to(device)
-            next_label = data['next_label'].to(device)
-            image = data['image'].to(device)
-            next_image = data['next_image'].to(device)
-            face_coords = data['face_coords'].to(device)
-
             pred_fake_pool_face = self.discriminateface(face_label_0, fake_face_0, use_pool=True)
             loss_D_fake_face += 0.5 * self.criterionGAN(pred_fake_pool_face, False)
 
