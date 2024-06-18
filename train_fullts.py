@@ -52,7 +52,7 @@ def main():
         epoch_start_time = time.time()
         if epoch != start_epoch:
             epoch_iter = epoch_iter   % dataset_size
-        for data in enumerate(dataset, start=epoch_iter):
+        for i, data in enumerate(dataset, start=epoch_iter):
             iter_start_time = time.time()
             total_steps += opt.batchSize
             epoch_iter += opt.batchSize
@@ -67,11 +67,11 @@ def main():
 
                 label = Variable(data['label']).to(device)
                 label = label.type(torch.cuda.FloatTensor)
-                next_label = Variable(data['label']).to(device)
+                next_label = Variable(data['next_label']).to(device)
                 next_label = next_label.type(torch.cuda.FloatTensor)
                 image = Variable(data['image']).to(device)
                 image = image.type(torch.cuda.FloatTensor)
-                next_image = Variable(data['image']).to(device)
+                next_image = Variable(data['next_image']).to(device)
                 next_image = next_image.type(torch.cuda.FloatTensor)
                 face_coords = Variable(data['face_coords']).to(device)
                 face_coords = face_coords.type(torch.cuda.FloatTensor)
@@ -87,12 +87,7 @@ def main():
             
                 model.cuda()
                 
-                print('label:', label.size())
-                print('next_label:', next_label.size())
-                print('image:', image.size())
-                print('next_image:', next_image.size())
-                print('face_coords:', face_coords.size())
-                print('cond_zeros:', cond_zeros.size())
+               
 
                 losses, generated = model(label, next_label, image, next_image, face_coords, cond_zeros, infer=True)
 

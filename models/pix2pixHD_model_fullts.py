@@ -189,30 +189,11 @@ class Pix2PixHDModel(BaseModel):
         input_label, real_image, next_label, next_image, zeroshere = self.encode_input(label, image, \
                      next_label=next_label, next_image=next_image, zeroshere=zeroshere)
        
-        input_label = input_label.to(self.device)
-        real_image = real_image.to(self.device)
-        next_label = next_label.to(self.device)
-        next_image = next_image.to(self.device)
-        zeroshere = zeroshere.to(self.device)
- 
-        default_miny = 0
-        default_maxy = 0
-        default_minx = 0
-        default_maxx = 0
-
-        if len(face_coords.tolist()) > 0:
-            print('face_coords:', face_coords)
-            print('face_coords.data:', face_coords.data)
+        if self.opt.face_discrim:
             miny = int(face_coords.data[0][0].item())
             maxy = int(face_coords.data[0][1].item())
             minx = int(face_coords.data[0][2].item())
             maxx = int(face_coords.data[0][3].item())
-        else:
-    # Handle the case when face_coords is empty
-           miny = default_miny
-           maxy = default_maxy
-           minx = default_minx
-           maxx = default_maxx
 
         initial_I_0 = 0
 
