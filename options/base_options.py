@@ -17,7 +17,8 @@ class BaseOptions():
         self.parser.add_argument('--checkpoints_dir', type=str, default='./checkpoints', help='models are saved here')
         self.parser.add_argument('--norm', type=str, default='instance', help='instance normalization or batch normalization')        
         self.parser.add_argument('--use_dropout', action='store_true', help='use dropout for the generator')
-
+        self.parser.add_argument('--fp16', action='store_true', default=False, help='train with AMP')
+         
         # input/output sizes       
         self.parser.add_argument('--batchSize', type=int, default=1, help='input batch size')
         self.parser.add_argument('--loadSize', type=int, default=1024, help='scale images to this size')
@@ -89,7 +90,7 @@ class BaseOptions():
                 torch.cuda.set_device(self.opt.gpu_ids[0])
             except AttributeError:
                 print("CUDA is not available. Using CPU instead.")
-            self.opt.gpu_ids = []
+            #self.opt.gpu_ids = []
 
         args = vars(self.opt)
 

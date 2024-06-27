@@ -12,17 +12,20 @@ import numpy as np
 import torch
 from torch.autograd import Variable
 import torch.multiprocessing as mp
+from torch.cuda.amp import GradScaler, autocast
 
 def main():
     opt = TrainOptions().parse()
     iter_path = os.path.join(opt.checkpoints_dir, opt.name, 'iter.txt')
+    checkpoint_path = os.path.join(opt.checkpoints_dir, opt.name, 'checkpoint.pt')
+    
     if opt.continue_train:
         try:
-            start_epoch, epoch_iter = np.loadtxt(iter_path , delimiter=',', dtype=int)
+            start_epoch, epoch_iter = np.loadtxt(iter_path, delimiter=',', dtype=int)
         except:
             start_epoch, epoch_iter = 1, 0
-        print('Resuming from epoch %d at iteration %d' % (start_epoch, epoch_iter))        
-    else:    
+        print('Resuming from epoch %d at iteration %d' % (start_epoch, epoch_iter))
+    else:
         start_epoch, epoch_iter = 1, 0
 
     if opt.debug:
@@ -46,12 +49,23 @@ def main():
     model.cuda()
     visualizer = Visualizer(opt)
 
-    total_steps = (start_epoch-1) * dataset_size + epoch_iter    
-    
+    optimizer_G, optimizer_D = model.module.optimizer_G, model.module.optimizer_D
+    scaler = GradScaler() if opt.fp16 else None
+
+    if opt.continue_train and os.path.exists(checkpoint_path):
+        checkpoint = torch.load(checkpoint_path)
+        model.module.load_state_dict(checkpoint['model'])
+        optimizer_G.load_state_dict(checkpoint['optimizer_G'])
+        optimizer_D.load_state_dict(checkpoint['optimizer_D'])
+        if scaler:
+            scaler.load_state_dict(checkpoint['scaler'])
+
+    total_steps = (start_epoch - 1) * dataset_size + epoch_iter
+
     for epoch in range(start_epoch, opt.niter + opt.niter_decay + 1):
         epoch_start_time = time.time()
         if epoch != start_epoch:
-            epoch_iter = epoch_iter   % dataset_size
+            epoch_iter = epoch_iter % dataset_size
         for i, data in enumerate(dataset, start=epoch_iter):
             iter_start_time = time.time()
             total_steps += opt.batchSize
@@ -66,45 +80,44 @@ def main():
                 cond_zeros = torch.zeros(data['label'].clone().size()).float()
 
                 label = Variable(data['label']).to(device)
-                label = label.type(torch.cuda.FloatTensor)
                 next_label = Variable(data['next_label']).to(device)
-                next_label = next_label.type(torch.cuda.FloatTensor)
                 image = Variable(data['image']).to(device)
-                image = image.type(torch.cuda.FloatTensor)
                 next_image = Variable(data['next_image']).to(device)
-                next_image = next_image.type(torch.cuda.FloatTensor)
                 face_coords = Variable(data['face_coords']).to(device)
-                face_coords = face_coords.type(torch.cuda.FloatTensor)
                 cond_zeros = Variable(cond_zeros).to(device)
-                cond_zeros = cond_zeros.type(torch.cuda.FloatTensor)
-                
-                # label = Variable(data['label'])
-                # next_label = Variable(data['label'])
-                # image = Variable(data['image'])
-                # next_image = Variable(data['image'])
-                # face_coords = Variable(data['face_coords'])
-                # cond_zeros = Variable(cond_zeros)
-            
-                model.cuda()
-                
-               
 
-                losses, generated = model(label, next_label, image, next_image, face_coords, cond_zeros, infer=True)
+                if opt.fp16:
+                    with autocast():
+                        losses, generated = model(label, next_label, image, next_image, face_coords, cond_zeros, infer=True)
+                else:
+                    losses, generated = model(label, next_label, image, next_image, face_coords, cond_zeros, infer=True)
 
-                losses = [ torch.mean(x) if not isinstance(x, int) else x for x in losses ]
-                loss_dict = dict(zip(model.loss_names, losses))
+                losses = [torch.mean(x) if not isinstance(x, int) else x for x in losses]
+                loss_dict = dict(zip(model.module.loss_names, losses))
 
                 loss_D = (loss_dict['D_fake'] + loss_dict['D_real']) * 0.5 + (loss_dict['D_realface'] + loss_dict['D_fakeface']) * 0.5
                 loss_G = loss_dict['G_GAN'] + loss_dict['G_GAN_Feat'] + loss_dict['G_VGG'] + loss_dict['G_GANface']
 
                 ############### Backward Pass ####################
-                model.optimizer_G.zero_grad()
-                loss_G.backward()
-                model.optimizer_G.step()
+                # update generator weights
+                optimizer_G.zero_grad()
+                if scaler:
+                    scaler.scale(loss_G).backward()
+                    scaler.step(optimizer_G)
+                    scaler.update()
+                else:
+                    loss_G.backward()
+                    optimizer_G.step()
 
-                model.optimizer_D.zero_grad()
-                loss_D.backward()
-                model.optimizer_D.step()
+                # update discriminator weights
+                optimizer_D.zero_grad()
+                if scaler:
+                    scaler.scale(loss_D).backward()
+                    scaler.step(optimizer_D)
+                    scaler.update()
+                else:
+                    loss_D.backward()
+                    optimizer_D.step()
 
                 ############## Display results and errors ##########
                 if total_steps % opt.print_freq == 0:
@@ -136,29 +149,45 @@ def main():
 
             if total_steps % opt.save_latest_freq == 0:
                 print('saving the latest model (epoch %d, total_steps %d)' % (epoch, total_steps))
-                model.save('latest')            
+                model.module.save('latest')
                 np.savetxt(iter_path, (epoch, epoch_iter), delimiter=',', fmt='%d')
+                # Save checkpoint
+                checkpoint = {
+                    'model': model.module.state_dict(),
+                    'optimizer_G': optimizer_G.state_dict(),
+                    'optimizer_D': optimizer_D.state_dict(),
+                    'scaler': scaler.state_dict() if scaler else None
+                }
+                torch.save(checkpoint, checkpoint_path)
 
         iter_end_time = time.time()
         print('End of epoch %d / %d \t Time Taken: %d sec' %
               (epoch, opt.niter + opt.niter_decay, time.time() - epoch_start_time))
 
         if epoch % opt.save_epoch_freq == 0:
-            print('saving the model at the end of epoch %d, iters %d' % (epoch, total_steps))        
-            model.save('latest')
-            model.save(epoch)
-            np.savetxt(iter_path, (epoch+1, 0), delimiter=',', fmt='%d')
+            print('saving the model at the end of epoch %d, iters %d' % (epoch, total_steps))
+            model.module.save('latest')
+            model.module.save(epoch)
+            np.savetxt(iter_path, (epoch + 1, 0), delimiter=',', fmt='%d')
+            # Save checkpoint
+            checkpoint = {
+                'model': model.module.state_dict(),
+                'optimizer_G': optimizer_G.state_dict(),
+                'optimizer_D': optimizer_D.state_dict(),
+                'scaler': scaler.state_dict() if scaler else None
+            }
+            torch.save(checkpoint, checkpoint_path)
 
         if (opt.niter_fix_global != 0) and (epoch == opt.niter_fix_global):
             print('------------- finetuning Local + Global generators jointly -------------')
-            model.update_fixed_params()
+            model.module.update_fixed_params()
 
         if (opt.niter_fix_main != 0) and (epoch == opt.niter_fix_main):
             print('------------- training all the discriminators now and not just the face -------------')
-            model.update_fixed_params_netD()
+            model.module.update_fixed_params_netD()
 
         if epoch > opt.niter:
-            model.update_learning_rate()
+            model.module.update_learning_rate()
 
 if __name__ == '__main__':
     mp.freeze_support()
