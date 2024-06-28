@@ -11,47 +11,51 @@ from util.visualizer import Visualizer
 from util import html
 import numpy as np
 import torch
+import torch.multiprocessing as mp
 
-opt = TestOptions().parse(save=False)
-opt.nThreads = 1   # test code only supports nThreads = 1
-opt.batchSize = 1  # test code only supports batchSize = 1
-opt.serial_batches = True  # no shuffle
-opt.no_flip = True  # no flip
+def main():
+    opt = TestOptions().parse(save=False)
+    opt.nThreads = 1   # test code only supports nThreads = 1
+    opt.batchSize = 1  # test code only supports batchSize = 1
+    opt.serial_batches = True  # no shuffle
+    opt.no_flip = True  # no flip
+    opt.num_workers = 0
+    
+    mp.set_start_method('spawn', force=True)
 
-data_loader = CreateDataLoader(opt)
-dataset = data_loader.load_data()
-model = create_model_fullts(opt)
-visualizer = Visualizer(opt)
-# create website
-web_dir = os.path.join(opt.results_dir, opt.name, '%s_%s' % (opt.phase, opt.which_epoch))
-webpage = html.HTML(web_dir, 'Experiment = %s, Phase = %s, Epoch = %s' % (opt.name, opt.phase, opt.which_epoch))
-# test
-unset = True
-print('#testing images = %d' % len(data_loader))
+    data_loader = CreateDataLoader(opt)
+    dataset = data_loader.load_data()
+    model = create_model_fullts(opt)
+    visualizer = Visualizer(opt)
+    # create website
+    web_dir = os.path.join(opt.results_dir, opt.name, '%s_%s' % (opt.phase, opt.which_epoch))
+    webpage = html.HTML(web_dir, 'Experiment = %s, Phase = %s, Epoch = %s' % (opt.name, opt.phase, opt.which_epoch))
+    # test
+    unset = True
+    print('#testing images = %d' % len(data_loader))
 
-for i, data in enumerate(dataset):
-    if i >= opt.how_many:
-        break
+    for i, data in enumerate(dataset):
+        if i >= opt.how_many:
+            break
 
-    if unset: #no previous results, condition on zero image
-      previous_cond = torch.zeros(data['label'].size())
-      unset = False
+        if unset: #no previous results, condition on zero image
+            previous_cond = torch.zeros(data['label'].size())
+            unset = False
 
-    generated = model.inference(data['label'], previous_cond, data['face_coords'])
+        generated = model.module.inference(data['label'], previous_cond, data['face_coords'])
 
-    previous_cond = generated.data
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        previous_cond = generated.data
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    visuals = OrderedDict([('synthesized_image', util.tensor2im(generated.data[0].to(device)))])
-    img_path = data['path']
-    print('process image... %s' % img_path)
-    visualizer.save_images(webpage, visuals, img_path)
+        visuals = OrderedDict([('synthesized_image', util.tensor2im(generated.data[0].to(device)))])
+        img_path = data['path']
+        print('process image... %s' % img_path)
+        visualizer.save_images(webpage, visuals, img_path)
 
-webpage.save()
+    webpage.save()
 
 
 if __name__ == '__main__':
     # Your main code here
-    pass
-    import torch.multiprocessing as mp
     mp.freeze_support()
+    main()
