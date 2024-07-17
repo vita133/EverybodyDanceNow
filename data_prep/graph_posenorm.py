@@ -14,8 +14,6 @@ from shutil import copyfile
 # from skimage import img_as_float
 from functools import reduce
 from renderopenpose import *
-from scipy.misc import imresize
-from scipy.misc import imsave
 import os
 import shutil
 
@@ -110,7 +108,7 @@ def get_keypoints_stats(mypath, myshape, spread, startname = "frame", stophere=2
 					else:
 						tiptoe_to_height[max_tip_toe] += [height]
 		else:
-			print ("cannot find file " + os.path.join(mypath, f))
+			print ("cannot find file " + os.path.join(mypath, f_yaml))
 		if count % 5000 == 0:
 			print (count)
 		if count >= stophere:
@@ -202,28 +200,6 @@ def calculate_translation(t_coord, translation, scaleyy):
 	scale_interp = scaleyy[1] + percentage*float(scaleyy[0] - scaleyy[1])
 
 	return m_coord - t_coord, scale_interp
-
-def readinfacepts(dir_facepts, spread, numcompare=100000):
-    # Ініціалізація змінних для зберігання даних
-    neighbors = []
-    masks = []
-    graphs = []
-    posefaces = []
-
-    for i in range(spread[0], min(spread[1], numcompare)):
-        filename = os.path.join(dir_facepts, f"frame{i:06d}_face.json")
-        if not os.path.isfile(filename):
-            continue
-        
-        with open(filename, 'r') as f:
-            data = json.load(f)
-            if data:
-                neighbors.append(data.get('neighbors', []))
-                masks.append(data.get('masks', []))
-                graphs.append(data.get('graphs', []))
-                posefaces.append(data.get('posefaces', []))
-    
-    return neighbors, masks, graphs, posefaces
 
 def transform_interp(mypath, scaleyy, translation, myshape, savedir, spread_m, spread_t, dir_facepts="", framesdir="", numkeypoints=0, startname='frame'):
 	start = spread_t[0]

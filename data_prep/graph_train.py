@@ -15,6 +15,7 @@ from functools import reduce
 from renderopenpose import *
 import os
 import argparse
+import re
 
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -83,7 +84,11 @@ if opt.debug and (not os.path.exists(savedir + '/debug')):
 	os.makedirs(savedir + '/debug')
 
 print('----------------- Loading Frames -----------------')
-frames = sorted(os.listdir(frames_dir))
+def numerical_sort(value):
+    numbers = re.findall(r'\d+', value)
+    return int(numbers[0]) if numbers else value
+
+frames = sorted(os.listdir(frames_dir), key=numerical_sort)
 print (frames)
 print('----------------- All Loaded -----------------')
 
@@ -92,7 +97,7 @@ while n <= end:
 	framesmadestr = '%06d' % numframesmade
 
 	filebase_name = os.path.splitext(frames[n])[0]
-	key_name = os.path.join(keypoints_dir, filebase_name)
+	key_name = os.path.join(keypoints_dir, filebase_name).replace('_rendered', '')
 	frame_name = os.path.join(frames_dir, frames[n])
 
 	posepts = []
@@ -102,6 +107,7 @@ while n <= end:
 	facepts = readkeypointsfile(key_name + "_face")
 	r_handpts = readkeypointsfile(key_name + "_hand_right")
 	l_handpts = readkeypointsfile(key_name + "_hand_left")
+	print('key_name', key_name )
 	if posepts is None: ## try json
 		posepts, facepts, r_handpts, l_handpts = readkeypointsfile(key_name + "_keypoints")
 		if posepts is None:
@@ -142,8 +148,8 @@ while n <= end:
 		oriImg = Image.fromarray(oriImg[:, :, [2,1,0]])
 		canvas = Image.fromarray(canvas[:, :, [2,1,0]])
 
-		oriImg = oriImg.resize((2*SIZE,SIZE), Image.ANTIALIAS)
-		canvas = canvas.resize((2*SIZE,SIZE), Image.ANTIALIAS)
+		oriImg = oriImg.resize((2*SIZE,SIZE), Image.Resampling.LANCZOS)
+		canvas = canvas.resize((2*SIZE,SIZE), Image.Resampling.LANCZOS)
 
 		oriImg.save(savedir + '/train_img/' + filebase_name + '.png')
 		canvas.save(savedir + '/train_label/' + filebase_name + '.png')

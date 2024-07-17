@@ -19,8 +19,6 @@ class Pix2PixHDModel(BaseModel):
         if opt.resize_or_crop != 'none': # when training at full res this causes OOM
             torch.backends.cudnn.benchmark = True
         self.isTrain = opt.isTrain
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
 
         ##### define networks        
         # Generator network
@@ -29,11 +27,7 @@ class Pix2PixHDModel(BaseModel):
             netG_input_nc += 1          
         self.netG = networks.define_G(netG_input_nc, opt.output_nc, opt.ngf, opt.netG, 
                                       opt.n_downsample_global, opt.n_blocks_global, opt.n_local_enhancers, 
-                                      opt.n_blocks_local, opt.norm, gpu_ids=self.gpu_ids).to(self.device)   
-        if self.netG is None:
-            raise ValueError("Initialization of self.netG failed!")
-        else:
-           print("self.netG initialized successfully.")     
+                                      opt.n_blocks_local, opt.norm, gpu_ids=self.gpu_ids)        
 
         # Discriminator network
         if self.isTrain:
@@ -133,27 +127,24 @@ class Pix2PixHDModel(BaseModel):
 
     def encode_input(self, label_map, real_image=None, next_label=None, next_image=None, zeroshere=None, infer=False):
 
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
-        input_label = label_map.data.float().to(device)
+        input_label = label_map.data.float().cuda()
         input_label = Variable(input_label, volatile=infer)
 
         # next label for training
         if next_label is not None:
-            
-            input_label = label_map.data.float().to(device)
+            next_label = next_label.data.float().cuda()
             next_label = Variable(next_label, volatile=infer)
 
         # real images for training
         if real_image is not None:
-            real_image = Variable(real_image.data.float().to(device))
+            real_image = Variable(real_image.data.float().cuda())
 
         # real images for training
         if next_image is not None:
-            next_image = Variable(next_image.data.float().to(device))
+            next_image = Variable(next_image.data.float().cuda())
 
         if zeroshere is not None:
-            zeroshere = zeroshere.data.float().to(device)
+            zeroshere = zeroshere.data.float().cuda()
             zeroshere = Variable(zeroshere, volatile=infer)
 
 
@@ -184,16 +175,14 @@ class Pix2PixHDModel(BaseModel):
             return self.netDface.forward(input_concat)
 
     def forward(self, label, next_label, image, next_image, face_coords, zeroshere, infer=False):
-    
         # Encode Inputs
         input_label, real_image, next_label, next_image, zeroshere = self.encode_input(label, image, \
                      next_label=next_label, next_image=next_image, zeroshere=zeroshere)
-       
         if self.opt.face_discrim:
-            miny = int(face_coords.data[0][0].item())
-            maxy = int(face_coords.data[0][1].item())
-            minx = int(face_coords.data[0][2].item())
-            maxx = int(face_coords.data[0][3].item())
+            miny = face_coords.data[0][0]
+            maxy = face_coords.data[0][1]
+            minx = face_coords.data[0][2]
+            maxx = face_coords.data[0][3]
 
         initial_I_0 = 0
 
@@ -209,9 +198,6 @@ class Pix2PixHDModel(BaseModel):
             I_0 = initial_I_0.clone()
             I_0[:, :, miny:maxy, minx:maxx] = initial_I_0[:, :, miny:maxy, minx:maxx] + face_residual_0
         else:
-            device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-            input_concat = input_concat.to(device)
-    
             I_0 = self.netG.forward(input_concat)
 
 
@@ -221,16 +207,12 @@ class Pix2PixHDModel(BaseModel):
         face_residual_1 = 0
         if self.opt.face_generator:
             initial_I_1 = self.netG.forward(input_concat1)
-            device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-            input_concat1 = input_concat1.to(device)  # Переміщення на правильний пристрій
-            face_label_1 = next_label[:, :, miny:maxy, minx:maxx].to(device)  # Переміщення на правильний пристрій
+            face_label_1 = next_label[:, :, miny:maxy, minx:maxx]
             face_residual_1 = self.faceGen.forward(torch.cat((face_label_1, initial_I_1[:, :, miny:maxy, minx:maxx]), dim=1))
             I_1 = initial_I_1.clone()
             I_1[:, :, miny:maxy, minx:maxx] = initial_I_1[:, :, miny:maxy, minx:maxx] + face_residual_1
         else:
-            input_concat1 = input_concat1.to(device)  # Переміщення на правильний пристрій
             I_1 = self.netG.forward(input_concat1)
-            
 
         loss_D_fake_face = loss_D_real_face = loss_G_GAN_face = 0
         fake_face_0 = fake_face_1 = real_face_0 = real_face_1 = 0
@@ -272,11 +254,8 @@ class Pix2PixHDModel(BaseModel):
                 face_residual = torch.cat((face_residual_0, face_residual_1), dim=3)
 
         # Fake Detection and Loss
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         pred_fake_pool = self.discriminate_4(input_label, next_label, I_0, I_1, use_pool=True)
-        
-        loss_D_fake = self.criterionGAN(pred_fake_pool, False)
-  
+        loss_D_fake = self.criterionGAN(pred_fake_pool, False)        
 
         # Real Detection and Loss        
         pred_real = self.discriminate_4(input_label, next_label, real_image, next_image)
@@ -344,8 +323,7 @@ class Pix2PixHDModel(BaseModel):
         return initial_I_0
 
     def get_edges(self, t):
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        edge = torch.ByteTensor(t.size()).zero_().to(device)
+        edge = torch.cuda.ByteTensor(t.size()).zero_()
         edge[:,:,:,1:] = edge[:,:,:,1:] | (t[:,:,:,1:] != t[:,:,:,:-1])
         edge[:,:,:,:-1] = edge[:,:,:,:-1] | (t[:,:,:,1:] != t[:,:,:,:-1])
         edge[:,:,1:,:] = edge[:,:,1:,:] | (t[:,:,1:,:] != t[:,:,:-1,:])

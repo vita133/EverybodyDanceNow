@@ -13,10 +13,10 @@ from shutil import copyfile
 from skimage import img_as_float
 from functools import reduce
 from renderopenpose import *
-from scipy.misc import imresize
-from scipy.misc import imsave
 import os
 import argparse
+import re
+
 
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -57,7 +57,7 @@ boxbuffer = opt.boxbuffer
 numframesmade = 0
 n = start
 
-print (step)
+print(step)
 
 startx = 0
 endx = myshape[1]
@@ -89,7 +89,11 @@ if not os.path.exists(savedir + '/debug'):
 	os.makedirs(savedir + '/debug')
 
 print('----------------- Loading Frames -----------------')
-frames = os.listdir(frames_dir)
+def numerical_sort(value):
+    numbers = re.findall(r'\d+', value)
+    return int(numbers[0]) if numbers else value
+
+frames = sorted(os.listdir(frames_dir), key=numerical_sort)
 print('----------------- All Loaded -----------------')
 
 pose_window = []
@@ -101,7 +105,7 @@ original_queue = []
 
 n = start
 while n <= end:
-	print (n)
+	print(n)
 	framesmadestr = '%06d' % numframesmade
 
 	filebase_name = os.path.splitext(frames[n])[0]
@@ -116,6 +120,7 @@ while n <= end:
 	r_handpts = readkeypointsfile(key_name + "_hand_right")
 	l_handpts = readkeypointsfile(key_name + "_hand_left")
 	if posepts is None: ## try json
+		print('key_name', key_name )
 		posepts, facepts, r_handpts, l_handpts = readkeypointsfile(key_name + "_keypoints")
 		if posepts is None:
 			print('unable to read keypoints file')
@@ -123,9 +128,10 @@ while n <= end:
 			sys.exit(0)
 
 	if not (len(posepts) in poselen):
-		print ("EMPTY")
+		print("EMPTY")
 		n += 1
 		continue
+	print('frame_name', frame_name)
 	oriImg = cv.imread(frame_name)
 	curshape = oriImg.shape
 
@@ -206,8 +212,8 @@ while n <= end:
 		saveoriImg = saveoriImg[starty:endy, startx:endx, [2,1,0]]
 		saveoriImg = Image.fromarray(saveoriImg)
 
-		saveoriImg = saveoriImg.resize((2*SIZE,SIZE), Image.ANTIALIAS)
-		canvas = canvas.resize((2*SIZE,SIZE), Image.ANTIALIAS)
+		saveoriImg = saveoriImg.resize((2*SIZE,SIZE), Image.Resampling.LANCZOS)
+		canvas = canvas.resize((2*SIZE,SIZE), Image.Resampling.LANCZOS)
 
 		saveoriImg.save(savedir + '/' + phase + '_img/frame' + framesmadestr + '.png')
 		canvas.save(savedir + '/' + phase + '_label/frame' + framesmadestr + '.png')

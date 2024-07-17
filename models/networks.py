@@ -13,9 +13,6 @@ import copy
 ###############################################################################
 # Functions
 ###############################################################################
-
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
 def weights_init(m):
     classname = m.__class__.__name__
     if classname.find('Conv') != -1:
@@ -37,35 +34,35 @@ def define_G(input_nc, output_nc, ngf, netG, n_downsample_global=3, n_blocks_glo
              n_blocks_local=3, norm='instance', gpu_ids=[]):    
     norm_layer = get_norm_layer(norm_type=norm)     
     if netG == 'global':    
-        netG = GlobalGenerator(input_nc, output_nc, ngf, n_downsample_global, n_blocks_global, norm_layer).to(device)       
+        netG = GlobalGenerator(input_nc, output_nc, ngf, n_downsample_global, n_blocks_global, norm_layer)       
     elif netG == 'local':        
         netG = LocalEnhancer(input_nc, output_nc, ngf, n_downsample_global, n_blocks_global, 
-                                  n_local_enhancers, n_blocks_local, norm_layer).to(device)
+                                  n_local_enhancers, n_blocks_local, norm_layer)
     elif netG == 'unet':
         netG = UnetGenerator(input_nc, output_nc, 3, ngf=64,
-                 norm_layer=nn.BatchNorm2d, use_dropout=False, gpu_ids=[]).to(device)
+                 norm_layer=nn.BatchNorm2d, use_dropout=False, gpu_ids=[])
     else:
         raise('generator not implemented!')
     print(netG)
     if len(gpu_ids) > 0:
         assert(torch.cuda.is_available())   
-        netG = netG.cuda(gpu_ids[0])
+        netG.cuda(gpu_ids[0])
     netG.apply(weights_init)
     return netG
 
 def define_D(input_nc, ndf, n_layers_D, norm='instance', use_sigmoid=False, num_D=1, getIntermFeat=False, gpu_ids=[], netD='multi'):
     if netD == 'multi':        
         norm_layer = get_norm_layer(norm_type=norm)   
-        netD = MultiscaleDiscriminator(input_nc, ndf, n_layers_D, norm_layer, use_sigmoid, num_D, getIntermFeat).to(device)   
+        netD = MultiscaleDiscriminator(input_nc, ndf, n_layers_D, norm_layer, use_sigmoid, num_D, getIntermFeat)   
     elif netD == 'face':
         netD = NLayerDiscriminator(input_nc, ndf=64, n_layers=n_layers_D, norm_layer=nn.BatchNorm2d, use_sigmoid=False, 
-                            getIntermFeat=False, addname='face').to(device)
+                            getIntermFeat=False, addname='face')
     else:
         raise('discriminator not implemented!')
     print(netD)
     if len(gpu_ids) > 0:
         assert(torch.cuda.is_available())
-        netD = netD.cuda(gpu_ids[0])
+        netD.cuda(gpu_ids[0])
     netD.apply(weights_init)
     return netD
 
@@ -84,7 +81,7 @@ def print_network(net):
 class GANLoss(nn.Module):
     def __init__(self, use_lsgan=True, target_real_label=1.0, target_fake_label=0.0,
                  tensor=torch.FloatTensor):
-        super(GANLoss, self).__init__()  # Викликаємо __init__() батьківського класу
+        super(GANLoss, self).__init__()
         self.real_label = target_real_label
         self.fake_label = target_fake_label
         self.real_label_var = None
@@ -101,30 +98,24 @@ class GANLoss(nn.Module):
             create_label = ((self.real_label_var is None) or
                             (self.real_label_var.numel() != input.numel()))
             if create_label:
-                real_tensor = self.Tensor(input.size()).fill_(self.real_label).to(input.device)
-                self.real_label_var = Variable(real_tensor, requires_grad=False).to(input.device)
-            target_tensor = self.real_label_var.to(input.device)
+                real_tensor = self.Tensor(input.size()).fill_(self.real_label)
+                self.real_label_var = Variable(real_tensor, requires_grad=False)
+            target_tensor = self.real_label_var
         else:
             create_label = ((self.fake_label_var is None) or
                             (self.fake_label_var.numel() != input.numel()))
             if create_label:
-                fake_tensor = self.Tensor(input.size()).fill_(self.fake_label).to(input.device)
+                fake_tensor = self.Tensor(input.size()).fill_(self.fake_label)
                 self.fake_label_var = Variable(fake_tensor, requires_grad=False)
-            target_tensor = self.fake_label_var.to(input.device)
+            target_tensor = self.fake_label_var
         return target_tensor
 
     def __call__(self, input, target_is_real):
         if isinstance(input[0], list):
             loss = 0
             for input_i in input:
-                device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
                 pred = input_i[-1]
                 target_tensor = self.get_target_tensor(pred, target_is_real)
-                
-                pred = pred.to(device)
-                target_tensor = target_tensor.to(device)
-                
                 loss += self.loss(pred, target_tensor)
             return loss
         else:            
@@ -132,23 +123,14 @@ class GANLoss(nn.Module):
             return self.loss(input[-1], target_tensor)
 
 class VGGLoss(nn.Module):
-    def __init__(self, gpu_ids, weights=None):
+    def __init__(self, gpu_ids):
         super(VGGLoss, self).__init__()        
-        self.vgg = Vgg19()
-        if torch.cuda.is_available():
-            self.vgg = self.vgg.cuda()
-        self.criterion = torch.nn.L1Loss()
-        # self.weights = [1.0/32, 1.0/16, 1.0/8, 1.0/4, 1.0]      
-        if weights is None:
-            self.weights = [1.0/32, 1.0/16, 1.0/8, 1.0/4, 1.0]
-        else:
-            self.weights = weights  
+        self.vgg = Vgg19().cuda()
+        self.criterion = nn.L1Loss()
+        self.weights = [1.0/32, 1.0/16, 1.0/8, 1.0/4, 1.0]        
 
     def forward(self, x, y):              
-        if torch.cuda.is_available():
-            x_vgg, y_vgg = self.vgg(x.cuda()), self.vgg(y.cuda())
-        else:
-            x_vgg, y_vgg = self.vgg(x), self.vgg(y)
+        x_vgg, y_vgg = self.vgg(x), self.vgg(y)
         loss = 0
         for i in range(len(x_vgg)):
             loss += self.weights[i] * self.criterion(x_vgg[i], y_vgg[i].detach())        
@@ -171,7 +153,7 @@ class LocalEnhancer(nn.Module):
         # print "minus 3 here", len(list(model_global))-3    
         # print [model_global[i] for i in range(len(list(model_global))-3)]
         model_global = [model_global[i] for i in range(len(list(model_global))-3)] # get rid of final convolution layers        
-        self.model = nn.Sequential(*model_global).to(device)                
+        self.model = nn.Sequential(*model_global)                
 
         ###### local enhancer layers #####
         for n in range(1, n_local_enhancers+1):
@@ -201,8 +183,7 @@ class LocalEnhancer(nn.Module):
 
     def forward(self, input): 
         ### create input pyramid
-        input_downsampled = [input.to(input.device)]
-
+        input_downsampled = [input]
         for i in range(self.n_local_enhancers):
             input_downsampled.append(self.downsample(input_downsampled[-1]))
 
@@ -241,12 +222,10 @@ class GlobalGenerator(nn.Module):
             model += [nn.ConvTranspose2d(ngf * mult, int(ngf * mult / 2), kernel_size=3, stride=2, padding=1, output_padding=1),
                        norm_layer(int(ngf * mult / 2)), activation]
         model += [nn.ReflectionPad2d(3), nn.Conv2d(ngf, output_nc, kernel_size=7, padding=0), nn.Tanh()]        
-        self.model = nn.Sequential(*model).to(device)
+        self.model = nn.Sequential(*model)
             
     def forward(self, input):
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        input = input.to(device)  # Переміщення вхідного тензора на правильний пристрій
-        return self.model(input).to(device)             
+        return self.model(input)             
         
 # Define a resnet block
 class ResnetBlock(nn.Module):
@@ -287,8 +266,7 @@ class ResnetBlock(nn.Module):
         return nn.Sequential(*conv_block)
 
     def forward(self, x):
-        device = x.device
-        out = x + self.conv_block(x.to(device))
+        out = x + self.conv_block(x)
         return out
 
 class Encoder(nn.Module):
@@ -414,7 +392,6 @@ class NLayerDiscriminator(nn.Module):
 
     def forward(self, input):
         if self.getIntermFeat:
-            input = input.to(input.device)
             res = [input]
             for n in range(self.n_layers+2):
                 model = getattr(self, self.addname + 'model'+str(n))
@@ -447,10 +424,10 @@ class UnetGenerator(nn.Module):
         self.model = unet_block
 
     def forward(self, input):
-        if self.gpu_ids and isinstance(input.data, torch.cuda.FloatTensor):
-            return nn.parallel.data_parallel(self.model, input, self.gpu_ids)
-        else:
-            return self.model(input)
+        # if self.gpu_ids and isinstance(input.data, torch.cuda.FloatTensor):
+        #     return nn.parallel.data_parallel(self.model, input, self.gpu_ids)
+        # else:
+        return self.model(input)
 
 
 # Defines the submodule with skip connection.
